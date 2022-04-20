@@ -53,7 +53,8 @@ static void tx_prepare_tx_mbuf(struct rte_mbuf *buf,
 	/* initialize mbuf to point to net_hdr->payload */
 	buf->buf_addr = (char *)net_hdr->payload;
 	page_number = PGN_2MB((uintptr_t)buf->buf_addr - (uintptr_t)p->region.base);
-	buf->buf_physaddr = p->page_paddrs[page_number] + PGOFF_2MB(buf->buf_addr);
+	// buf->buf_physaddr = p->page_paddrs[page_number] + PGOFF_2MB(buf->buf_addr);
+	buf->buf_iova = p->page_paddrs[page_number] + PGOFF_2MB(buf->buf_addr);
 	buf->data_off = 0;
 	rte_mbuf_refcnt_set(buf, 1);
 
@@ -72,9 +73,9 @@ static void tx_prepare_tx_mbuf(struct rte_mbuf *buf,
 		if (net_hdr->olflags & OLFLAG_IPV6)
 			buf->ol_flags |= PKT_TX_IPV6;
 
-		buf->l4_len = sizeof(struct tcp_hdr);
-		buf->l3_len = sizeof(struct ipv4_hdr);
-		buf->l2_len = ETHER_HDR_LEN;
+		buf->l4_len = sizeof(struct rte_tcp_hdr);
+		buf->l3_len = sizeof(struct rte_ipv4_hdr);
+		buf->l2_len = RTE_ETHER_HDR_LEN;
 	}
 
 	/* initialize the private data, used to send completion events */

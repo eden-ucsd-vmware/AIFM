@@ -110,7 +110,7 @@ static inline bool hwq_busy(struct hwq *h, uint32_t cq_idx)
 struct proc {
 	pid_t			pid;
 	struct shm_region	region;
-	bool			removed;
+	uint8_t			removed;
 	bool			has_directpath;
 	struct ref		ref;
 	unsigned int		kill:1;       /* the proc is being torn down */

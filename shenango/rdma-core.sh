@@ -2,7 +2,8 @@
 
 set -e
 
-git submodule update --init --recursive
+rm -rf rdma-core
+git submodule update --init --recursive rdma-core
 
 pushd rdma-core
 git apply ../rdma-core.patch || true
