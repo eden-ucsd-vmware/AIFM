@@ -541,7 +541,7 @@ static int __init ksched_cpuidle_hijack(void)
 	drv = cpuidle_get_driver();
 	if (!drv)
 		return -ENOENT;
-	if (drv->state_count <= 0 || drv->states[0].disabled)
+	if (drv->state_count <= 0 || drv->states[0].flags & CPUIDLE_FLAG_UNUSABLE)
 		return -EINVAL;
 
 	cpuidle_pause_and_lock();
