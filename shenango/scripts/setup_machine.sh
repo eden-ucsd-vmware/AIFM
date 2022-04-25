@@ -20,6 +20,7 @@ chmod uga+rwx /dev/pcicfg
 
 # reserve huge pages
 echo 8192 > /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages
+echo 8192 > /sys/devices/system/node/node1/hugepages/hugepages-2048kB/nr_hugepages
 
 # revoke any CAT settings
 modprobe msr

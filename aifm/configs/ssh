@@ -1,10 +1,11 @@
-MEM_SERVER_SSH_IP=128.110.154.181
-MEM_SERVER_SSH_USER=zainruan
+# MEM_SERVER_SSH_IP=128.110.154.181
+# MEM_SERVER_SSH_USER=zainruan
+MEM_SERVER_SSH="sc32"
 
 function ssh_execute {
-    ssh $MEM_SERVER_SSH_USER@$MEM_SERVER_SSH_IP $1
+    ssh $MEM_SERVER_SSH $1
 }
 
 function ssh_execute_tty {
-    ssh $MEM_SERVER_SSH_USER@$MEM_SERVER_SSH_IP -t $1
+    ssh $MEM_SERVER_SSH -t $1
 }

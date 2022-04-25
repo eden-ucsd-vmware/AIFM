@@ -1,5 +1,35 @@
 #!/bin/bash
 
+#
+# Build Shenango & related code
+#
+
+usage="\n
+-f, --force \t\t force redo setup\n
+-h, --help \t\t this usage information message\n"
+
+# Parse command line arguments
+for i in "$@"
+do
+case $i in
+    -f|--force)
+    FORCE=1
+    FORCE_FLAG="--force"
+    ;;
+
+    -h | --help)
+    echo -e $usage
+    exit
+    ;;
+
+    *)                      # unknown option
+    echo "Unkown Option: $i"
+    echo -e $usage
+    exit
+    ;;
+esac
+done
+
 # Ksched
 cd ksched
 make clean
@@ -7,10 +37,10 @@ make || { echo 'Failed to build ksched.'; exit 1; }
 cd ..
 
 # DPDK
-./dpdk.sh || { echo 'Failed to build DPDK.'; exit 1; }
+./dpdk.sh ${FORCE_FLAG} || { echo 'Failed to build DPDK.'; exit 1; }
 
 # RDMA
-./rdma-core.sh || { echo 'Failed to build RDMA core.'; exit 1; }
+./rdma-core.sh ${FORCE_FLAG} || { echo 'Failed to build RDMA core.'; exit 1; }
 
 # Shenango Core
 make clean
