@@ -208,8 +208,18 @@ int dpdk_init(void)
 		return -1;
 	}
 
+	dp.port = 0;	/* default port is 0 unless specified */
+	if (strlen(dp.port_pci_name) > 0){
+		ret = rte_eth_dev_get_port_by_name(dp.port_pci_name, &(dp.port));
+		if (ret) {
+			log_err("dpdk: error getting port id from provided name %s", dp.port_pci_name);
+			return -1;
+		}
+		log_debug("dpdk: port id %d found for name %s", dp.port, dp.port_pci_name);
+	}
+
 	/* check that there is a port to send/receive on */
-	if (!rte_eth_dev_is_valid_port(0)) {
+	if (!rte_eth_dev_is_valid_port(dp.port)) {
 		log_err("dpdk: no available ports");
 		return -1;
 	}
@@ -226,7 +236,6 @@ int dpdk_init(void)
 int dpdk_late_init(void)
 {
 	/* initialize port */
-	dp.port = 1;
 	if (dpdk_port_init(dp.port, dp.rx_mbuf_pool) != 0) {
 		log_err("dpdk: cannot init port %"PRIu8 "\n", dp.port);
 		return -1;

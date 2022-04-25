@@ -6,6 +6,8 @@ SHENANGO_PATH=$AIFM_PATH/../shenango
 MEM_SERVER_DPDK_IP=18.18.1.3
 MEM_SERVER_PORT=8000
 MEM_SERVER_STACK_KB=65536
+CPU_CORES="14-27,42-55"
+NIC_PCI_NAME="0000:d8:00.1"
 
 source $AIFM_PATH/configs/ssh
 
@@ -52,12 +54,12 @@ function run_local_iokerneld {
 
 function rerun_local_iokerneld {
     kill_local_iokerneld
-    run_local_iokerneld simple
+    run_local_iokerneld simple ${CPU_CORES} ${NIC_PCI_NAME}
 }
 
 function rerun_local_iokerneld_noht {
     kill_local_iokerneld
-    run_local_iokerneld simple noht
+    run_local_iokerneld simple noht ${NIC_PCI_NAME}
 }
 
 function rerun_local_iokerneld_args {
@@ -71,7 +73,7 @@ function kill_mem_server {
 }
 
 function run_mem_server {
-    ssh_execute "sudo $SHENANGO_PATH/iokerneld simple" > /dev/null 2>&1 &
+    ssh_execute "sudo $SHENANGO_PATH/iokerneld simple ${CPU_CORES} ${NIC_PCI_NAME}" > /dev/null 2>&1 &
     sleep 3
     ssh_execute_tty "sudo sh -c 'ulimit -s $MEM_SERVER_STACK_KB; \
                      $AIFM_PATH/bin/tcp_device_server $AIFM_PATH/configs/server.config \

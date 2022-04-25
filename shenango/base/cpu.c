@@ -49,6 +49,12 @@ static int cpu_scan_topology(void)
 		return -EINVAL;
 	}
 	
+	if (NUMA_NODE >= numa_count) {
+		log_err("cpu: detected %d NUMA nodes, unsupported numa node %d.",
+			numa_count, NUMA_NODE);
+		return -EINVAL;
+	}
+
 	/* How many CPUs? */
 	if (sysfs_parse_bitlist("/sys/devices/system/cpu/online",
 			        cpu_mask, NCPU))

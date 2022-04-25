@@ -129,7 +129,7 @@ void dataplane_loop(void)
 
 static void print_usage(void)
 {
-	printf("usage: POLICY [noht/core_list]\n");
+	printf("usage: POLICY [noht/core_list] [NIC_PCI]\n");
 	printf("\tsimple: the standard, basic scheduler policy\n");
 	printf("\tmis: a policy aware of microarchitectural interference\n");
 	printf("\tnuma: a policy aware of NUMA architectures\n");
@@ -138,6 +138,16 @@ static void print_usage(void)
 int main(int argc, char *argv[])
 {
 	int ret;
+
+	/* accept pci slot name to target the dpdk port 
+	 * of a specific nic interface */
+	if (argc >= 4) {
+		assert(strlen(argv[3]) < 50);
+		strcpy(dp.port_pci_name, argv[3]);
+	}
+	else {
+		strcpy(dp.port_pci_name, "");
+	}
 
 	if (argc >= 3) {
 		if (!strcmp(argv[2], "noht"))
@@ -173,6 +183,7 @@ int main(int argc, char *argv[])
 	} else {
 		sched_ops = &simple_ops;
 	}
+
 
 	ret = run_init_handlers("iokernel", iok_init_handlers,
 			ARRAY_SIZE(iok_init_handlers));

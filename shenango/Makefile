@@ -8,6 +8,10 @@ ifneq ($(TCP_RX_STATS),)
 CFLAGS += -DTCP_RX_STATS
 endif
 
+ifneq ($(NUMA_NODE),)
+CFLAGS += -DNUMA_NODE=$(NUMA_NODE)
+endif
+
 # libbase.a - the base library
 base_src = $(wildcard base/*.c)
 base_obj = $(base_src:.c=.o)

@@ -4,6 +4,9 @@
 # Build Shenango & related code
 #
 
+#defaults
+NUMA_NODE=1
+
 usage="\n
 -f, --force \t\t force redo setup\n
 -h, --help \t\t this usage information message\n"
@@ -44,7 +47,7 @@ cd ..
 
 # Shenango Core
 make clean
-make -j$(nproc) || { echo 'Failed to build Shenango core.'; exit 1; }
+make -j$(nproc) NUMA_NODE=${NUMA_NODE} || { echo 'Failed to build Shenango core.'; exit 1; }
 
 # Bindings
 cd bindings/cc

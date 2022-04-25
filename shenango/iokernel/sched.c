@@ -554,7 +554,7 @@ int sched_init(void)
 	 */
 
 	for (i = 0; i < cpu_count; i++) {
-		if (cpu_info_tbl[i].package != 0 && sched_ops != &numa_ops)
+		if (cpu_info_tbl[i].package != NUMA_NODE && sched_ops != &numa_ops)
 			continue;
 
 		if (allowed_cores_supplied &&
@@ -566,7 +566,7 @@ int sched_init(void)
 	/* check for minimum number of cores required */
 	i = bitmap_popcount(sched_allowed_cores, NCPU);
 	if (i < 4) {
-		log_err("sched: %d is not enough cores\n", i);
+		log_err("sched: %d is not enough cores on current numa node %d\n", i, NUMA_NODE);
 		return -EINVAL;
 	}
 

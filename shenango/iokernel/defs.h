@@ -240,6 +240,7 @@ enum {
  */
 struct dataplane {
 	uint8_t			port;
+	char			port_pci_name[50];
 	bool			is_mlx;
 	struct rte_mempool	*rx_mbuf_pool;
 
