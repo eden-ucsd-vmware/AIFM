@@ -237,13 +237,13 @@ static struct rte_mempool *rx_pktmbuf_pool_create_in_shm(const char *name,
 	pg_shift = rte_bsf32(pg_size);
 	len = rte_mempool_ops_calc_mem_size(mp, n, pg_shift, &min_chunk_size, &align);
 	/* reserve 4KB for iokernel information */
-	BUILD_ASSERT(sizeof(struct iokernel_info) <= PGSIZE_4KB);
-	if (len > INGRESS_MBUF_SHM_SIZE - PGSIZE_4KB) {
+	BUILD_ASSERT(sizeof(struct iokernel_info) <= PGSIZE_2MB);
+	if (len > INGRESS_MBUF_SHM_SIZE - PGSIZE_2MB) {
 		log_err("rx: shared memory is too small for number of mbufs");
 		goto fail_free_mempool;
 	}
 
-	shbuf = dp.ingress_mbuf_region.base + PGSIZE_4KB;
+	shbuf = dp.ingress_mbuf_region.base + PGSIZE_2MB;
 
 	/* hack to make sure that this memory area is registered in DPDK */
 	/* use rte_extmem_* and rte_dev_dma_map in the future */
@@ -253,7 +253,7 @@ static struct rte_mempool *rx_pktmbuf_pool_create_in_shm(const char *name,
 	if (ret < 0)
 		goto fail_unmap_memory;
 
-	ret = rte_malloc_heap_memory_add("rx_buf_heap", shbuf, INGRESS_MBUF_SHM_SIZE - PGSIZE_4KB, NULL, 0, PGSIZE_2MB);
+	ret = rte_malloc_heap_memory_add("rx_buf_heap", shbuf, INGRESS_MBUF_SHM_SIZE - PGSIZE_2MB, NULL, 0, PGSIZE_2MB);
 	if (ret < 0)
 		goto fail_unmap_memory;
 
