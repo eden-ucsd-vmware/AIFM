@@ -31,6 +31,7 @@
 #include <linux/sched/task.h>
 #include <linux/smp.h>
 #include <linux/uaccess.h>
+#include <linux/version.h>
 
 #include "ksched.h"
 #include "../iokernel/pmc.h"
@@ -541,7 +542,12 @@ static int __init ksched_cpuidle_hijack(void)
 	drv = cpuidle_get_driver();
 	if (!drv)
 		return -ENOENT;
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(5,5,0)
 	if (drv->state_count <= 0 || drv->states[0].flags & CPUIDLE_FLAG_UNUSABLE)
+#else
+	if (drv->state_count <= 0 || drv->states[0].disabled)
+#endif
 		return -EINVAL;
 
 	cpuidle_pause_and_lock();
