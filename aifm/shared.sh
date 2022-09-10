@@ -87,7 +87,7 @@ function rerun_mem_server {
 }
 
 function run_program {    
-    sudo stdbuf -o0 sh -c "$1 $AIFM_PATH/configs/client.config \
+    echo sudo stdbuf -o0 sh -c "$1 $AIFM_PATH/configs/client.config \
                            $MEM_SERVER_DPDK_IP:$MEM_SERVER_PORT"
 }
 

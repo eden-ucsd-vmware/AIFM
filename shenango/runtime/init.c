@@ -182,6 +182,7 @@ int runtime_init(const char *cfgpath, thread_fn_t main_fn, void *arg)
 
 	pthread_barrier_init(&init_barrier, NULL, maxks);
 
+	log_info("1");
 	ret = run_init_handlers("global", global_init_handlers,
 				ARRAY_SIZE(global_init_handlers));
 	if (ret)
@@ -195,6 +196,7 @@ int runtime_init(const char *cfgpath, thread_fn_t main_fn, void *arg)
 		}
 	}
 
+	log_info("2");
 	ret = runtime_init_thread();
 	BUG_ON(ret);
 
