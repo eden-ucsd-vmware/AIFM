@@ -33,7 +33,7 @@ done
 
 SCRIPT_DIR=`dirname "$0"`
 rdmadir=${SCRIPT_DIR}/rdma-core/
-if ! [ -d $rdmadir ] || [[ $FORCE ]]; then
+if [ -z "$(ls -A ${rdmadir})" ] || [[ $FORCE ]]; then
     # setup
     rm -rf ${rdmadir}
     git submodule update --init --recursive rdma-core

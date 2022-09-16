@@ -1,6 +1,6 @@
 # MEM_SERVER_SSH_IP=128.110.154.181
 # MEM_SERVER_SSH_USER=zainruan
-MEM_SERVER_SSH="sc32"
+MEM_SERVER_SSH="sc07"
 
 function ssh_execute {
     ssh $MEM_SERVER_SSH $1

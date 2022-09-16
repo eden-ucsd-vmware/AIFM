@@ -33,10 +33,10 @@ done
 
 SCRIPT_DIR=`dirname "$0"`
 dpdkdir=${SCRIPT_DIR}/dpdk/
-if ! [ -d $dpdkdir ] || [[ $FORCE ]]; then
+if [ -z "$(ls -A ${dpdkdir})" ] || [[ $FORCE ]]; then
     # setup
-    rm -rf spdk
-    rm -rf dpdk
+    rm -rf ${SCRIPT_DIR}/spdk
+    rm -rf ${dpdkdir}
 
     git submodule update --init --recursive dpdk
 
