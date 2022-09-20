@@ -1,9 +1,13 @@
 SHENANGO_PATH=../shenango
 include $(SHENANGO_PATH)/shared.mk
 
+ifndef EDEN_PATH
+$(error EDEN_PATH is not set)
+endif
+
 librt_libs = $(SHENANGO_PATH)/bindings/cc/librt++.a
 INC += -I$(SHENANGO_PATH)/bindings/cc -I$(SHENANGO_PATH)/ksched -Iinc \
-       -IDataFrame/AIFM/include/
+       -I$(EDEN_PATH)/apps/dataframe/dataframe/include/
 
 test_pointer_noswap_src = test/test_pointer_noswap.cpp
 test_pointer_noswap_obj = $(test_pointer_noswap_src:.cpp=.o)

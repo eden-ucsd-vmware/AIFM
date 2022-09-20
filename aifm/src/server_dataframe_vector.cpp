@@ -4,7 +4,7 @@ extern "C" {
 #include <base/stddef.h>
 }
 
-#include "../DataFrame/AIFM/include/simple_time.hpp"
+#include "simple_time.hpp"
 #include "aggregator.hpp"
 #include "dataframe_vector.hpp"
 #include "internal/dataframe_types.hpp"

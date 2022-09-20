@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../DataFrame/AIFM/include/simple_time.hpp"
+#include "simple_time.hpp"
 #include "helpers.hpp"
 
 #include <cstdint>
