@@ -39,7 +39,7 @@ namespace far_memory {
 class FarMemTest {
 private:
   // FarMemManager.
-  constexpr static uint64_t kCacheSize = 563 * Region::kSize;
+  constexpr static uint64_t kCacheSize = 20480 * Region::kSize;
   constexpr static uint64_t kFarMemSize = (17ULL << 30); // 17 GB
   constexpr static uint32_t kNumGCThreads = 12;
   constexpr static uint32_t kNumConnections = 300;
@@ -47,7 +47,7 @@ private:
   // Hashtable.
   constexpr static uint32_t kKeyLen = 12;
   constexpr static uint32_t kValueLen = 4;
-  constexpr static uint32_t kLocalHashTableNumEntriesShift = 25;
+  constexpr static uint32_t kLocalHashTableNumEntriesShift = 28;
   constexpr static uint32_t kRemoteHashTableNumEntriesShift = 28;
   constexpr static uint64_t kRemoteHashTableSlabSize = (4ULL << 30) * 1.05;
   constexpr static uint32_t kNumKVPairs = 1 << 27;
@@ -64,7 +64,7 @@ private:
   constexpr static uint32_t kLog10NumKeysPerRequest =
       helpers::static_log(10, kNumKeysPerRequest);
   constexpr static uint32_t kReqLen = kKeyLen - kLog10NumKeysPerRequest;
-  constexpr static uint32_t kReqSeqLen = kNumReqs;
+  constexpr static uint32_t kReqSeqLen = (10*1024*1024);// TODO 1. kNumReqs;
 
   // Output.
   constexpr static uint32_t kPrintPerIters = 8192;
@@ -97,7 +97,8 @@ private:
   std::unique_ptr<std::mt19937> generators[helpers::kNumCPUs];
   alignas(helpers::kHugepageSize) Req all_gen_reqs[kNumReqs];
   uint32_t all_zipf_req_indices[helpers::kNumCPUs][kReqSeqLen];
-  
+  uint32_t arr_zipf_req_indices[helpers::kNumCPUs][kReqSeqLen];
+
   Cnt req_cnts[kNumMutatorThreads];
   Cnt local_array_miss_cnts[kNumMutatorThreads];
   Cnt local_hashtable_miss_cnts[kNumMutatorThreads];
@@ -113,6 +114,7 @@ private:
   std::vector<double> mops_records;
   std::vector<double> hashtable_miss_rate_records;
   std::vector<double> array_miss_rate_records;
+  std::vector<double> net_reads_records;
 
   unsigned char key[CryptoPP::AES::DEFAULT_KEYLENGTH];
   unsigned char iv[CryptoPP::AES::BLOCKSIZE];
@@ -200,13 +202,17 @@ private:
     }
     preempt_disable();
     zipf_table_distribution<> zipf(kNumReqs, kZipfParamS);
-    auto &generator = generators[get_core_num()];
+      zipf_table_distribution<> zipf2(kNumArrayEntries, kZipfParamS); // TODO 2. zipf array
+      auto &generator = generators[get_core_num()];
     constexpr uint32_t kPerCoreWinInterval = kReqSeqLen / helpers::kNumCPUs;
     for (uint32_t i = 0; i < kReqSeqLen; i++) {
       auto rand_idx = zipf(*generator);
+        auto rand_idx2 = zipf2(*generator);
       for (uint32_t j = 0; j < helpers::kNumCPUs; j++) {
         all_zipf_req_indices[j][(i + (j * kPerCoreWinInterval)) % kReqSeqLen] =
             rand_idx;
+          arr_zipf_req_indices[j][(i + (j * kPerCoreWinInterval)) % kReqSeqLen] =
+                  rand_idx2;
       }
     }
     preempt_enable();
@@ -215,6 +221,9 @@ private:
   void prepare(AppArray *array) {
     // We may put something into array for initialization.
     // But for the performance benchmark, we just do nothing here.
+      for (uint32_t i = 0;i < kNumArrayEntries;i++) {
+          array->write(ArrayEntry {{0}}, i);
+      }
   }
 
   void consume_array_entry(const ArrayEntry &entry) {
@@ -250,9 +259,13 @@ private:
         auto array_miss_rate =
             (double)(sum_array_misses - prev_sum_array_misses) /
             (sum_reqs - prev_sum_reqs);
-        mops_records.push_back(mops);
+      auto net_read_rate = (double)((sum_hashtable_misses - prev_sum_hashtable_misses) +
+                                    (sum_array_misses - prev_sum_array_misses)) /
+                           (us - prev_us) * 1.098; // TODO 3. net read
+          mops_records.push_back(mops);
         hashtable_miss_rate_records.push_back(hashtable_miss_rate);
         array_miss_rate_records.push_back(array_miss_rate);
+          net_reads_records.push_back(net_read_rate);
         us = microtime();
         running_us += (us - prev_us);
         if (print_times++ >= kPrintTimes) {
@@ -267,7 +280,10 @@ private:
           array_miss_rate_records.erase(array_miss_rate_records.begin(),
                                         array_miss_rate_records.end() -
                                             num_chosen_records);
-          std::cout << "mops = "
+            net_reads_records.erase(net_reads_records.begin(),
+                                            net_reads_records.end() - num_chosen_records);
+
+                                    std::cout << "mops = "
                     << accumulate(mops_records.begin(), mops_records.end(),
                                   0.0) /
                            mops_records.size()
@@ -282,6 +298,11 @@ private:
                                   array_miss_rate_records.end(), 0.0) /
                            array_miss_rate_records.size()
                     << std::endl;
+            std::cout << "net read rate = "
+                       << accumulate(net_reads_records.begin(),
+                                     net_reads_records.end(), 0.0) /
+                              net_reads_records.size()
+                       << std::endl;
           exit(0);
         }
         prev_us = us;
@@ -310,15 +331,19 @@ private:
           auto core_num = get_core_num();
           auto req_idx =
               all_zipf_req_indices[core_num][per_core_req_idx[core_num].c];
-          if (unlikely(++per_core_req_idx[core_num].c == kReqSeqLen)) {
-            per_core_req_idx[core_num].c = 0;
+            auto array_index =
+                    arr_zipf_req_indices[core_num][per_core_req_idx[core_num].c];
+        if (unlikely(++per_core_req_idx[core_num].c == kReqSeqLen)) {
+//            per_core_req_idx[core_num].c = 0;
+            std::cout << "ERROR! core " << core_num << " out of requests!" << std::endl;
+            BUG();
           }
           preempt_enable();
 
           auto &req = all_gen_reqs[req_idx];
           Key key;
           memcpy(key.data, req.data, kReqLen);
-          uint32_t array_index = 0;
+          //uint32_t array_index = 0;
           {
             DerefScope scope;
             for (uint32_t i = 0; i < kNumKeysPerRequest; i++) {
@@ -330,7 +355,7 @@ private:
               hopscotch->_get(kKeyLen, (const uint8_t *)key.data,
                               &value_len, (uint8_t *)value.data, &forwarded);
               ACCESS_ONCE(local_hashtable_miss_cnts[tid].c) += forwarded;
-              array_index += value.num;
+              //array_index += value.num;
             }
           }
           {
