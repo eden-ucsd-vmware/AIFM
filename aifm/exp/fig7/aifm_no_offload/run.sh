@@ -28,7 +28,7 @@ do
     make -j
     rerun_local_iokerneld_noht
     rerun_mem_server
-    run_program_noht ./bin/main_tcp 1>$log_folder/log.$cache_size 2>&1
+    run_program_noht ./bin/main_tcp 1>$log_folder/log_$cache_size 2>&1
     cd ..
 done
 kill_local_iokerneld

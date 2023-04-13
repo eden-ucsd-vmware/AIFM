@@ -1,5 +1,5 @@
-MEM_SERVER_SSH_IP=$(ssh clab2 "ifconfig | grep 'inet \(128.110\)'"| awk '$1 == "inet" {print $2}')
-MEM_SERVER_SSH_USER=ayelam
+MEM_SERVER_SSH_IP=128.110.218.163
+MEM_SERVER_SSH_USER=saarth
 
 function ssh_execute {
     ssh $MEM_SERVER_SSH_USER@$MEM_SERVER_SSH_IP $1

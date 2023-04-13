@@ -29,6 +29,7 @@ extern "C" {
 #include <memory>
 #include <numeric>
 #include <random>
+//#include <set>
 #include <vector>
 
 using namespace far_memory;
@@ -39,18 +40,18 @@ namespace far_memory {
 class FarMemTest {
 private:
   // FarMemManager.
-  constexpr static uint64_t kCacheSize = 563 * Region::kSize;
+  constexpr static uint64_t kCacheSize = 16043 * Region::kSize;
   constexpr static uint64_t kFarMemSize = (17ULL << 30); // 17 GB
   constexpr static uint32_t kNumGCThreads = 12;
   constexpr static uint32_t kNumConnections = 300;
 
   // Hashtable.
   constexpr static uint32_t kKeyLen = 12;
-  constexpr static uint32_t kValueLen = 4;
-  constexpr static uint32_t kLocalHashTableNumEntriesShift = 25;
+  constexpr static uint32_t kValueLen = 200;
+  constexpr static uint32_t kLocalHashTableNumEntriesShift = 28;
   constexpr static uint32_t kRemoteHashTableNumEntriesShift = 28;
-  constexpr static uint64_t kRemoteHashTableSlabSize = (4ULL << 30) * 1.05;
-  constexpr static uint32_t kNumKVPairs = 1 << 27;
+  constexpr static uint64_t kRemoteHashTableSlabSize = (4ULL << 30) * 1.5;
+  constexpr static uint32_t kNumKVPairs = 1 << 24;
 
   // Array.
   constexpr static uint32_t kNumArrayEntries = 2 << 20; // 2 M entries.
@@ -113,6 +114,7 @@ private:
   std::vector<double> mops_records;
   std::vector<double> hashtable_miss_rate_records;
   std::vector<double> array_miss_rate_records;
+  //std::set<int> cores_used;
 
   unsigned char key[CryptoPP::AES::DEFAULT_KEYLENGTH];
   unsigned char iv[CryptoPP::AES::BLOCKSIZE];
@@ -215,6 +217,9 @@ private:
   void prepare(AppArray *array) {
     // We may put something into array for initialization.
     // But for the performance benchmark, we just do nothing here.
+    for (uint32_t i = 0;i < kNumArrayEntries;i++) {
+        array->write(ArrayEntry {{0}}, i);
+    }
   }
 
   void consume_array_entry(const ArrayEntry &entry) {
@@ -282,6 +287,7 @@ private:
                                   array_miss_rate_records.end(), 0.0) /
                            array_miss_rate_records.size()
                     << std::endl;
+	  //std::cout << "cores used = " << cores_used.size() << std::endl;
           exit(0);
         }
         prev_us = us;
@@ -308,6 +314,7 @@ private:
           }
           preempt_disable();
           auto core_num = get_core_num();
+	  //cores_used.insert(get_current_affinity());
           auto req_idx =
               all_zipf_req_indices[core_num][per_core_req_idx[core_num].c];
           if (unlikely(++per_core_req_idx[core_num].c == kReqSeqLen)) {
@@ -367,7 +374,7 @@ public:
     auto array_ptr = std::unique_ptr<AppArray>(
         manager->allocate_array_heap<ArrayEntry, kNumArrayEntries>());
     array_ptr->disable_prefetch();
-    prepare(array_ptr.get());
+    //prepare(array_ptr.get());
     std::cout << "Bench..." << std::endl;
     bench(hopscotch.get(), array_ptr.get());
   }
