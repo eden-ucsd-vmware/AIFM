@@ -39,18 +39,18 @@ namespace far_memory {
 class FarMemTest {
 private:
   // FarMemManager.
-  constexpr static uint64_t kCacheSize = 20480 * Region::kSize;
+  constexpr static uint64_t kCacheSize = 563 * Region::kSize;
   constexpr static uint64_t kFarMemSize = (17ULL << 30); // 17 GB
   constexpr static uint32_t kNumGCThreads = 12;
   constexpr static uint32_t kNumConnections = 300;
 
   // Hashtable.
   constexpr static uint32_t kKeyLen = 12;
-  constexpr static uint32_t kValueLen = 4;
-  constexpr static uint32_t kLocalHashTableNumEntriesShift = 28;
+  constexpr static uint32_t kValueLen = 3200;
+  constexpr static uint32_t kLocalHashTableNumEntriesShift = 25;
   constexpr static uint32_t kRemoteHashTableNumEntriesShift = 28;
   constexpr static uint64_t kRemoteHashTableSlabSize = (4ULL << 30) * 1.05;
-  constexpr static uint32_t kNumKVPairs = 1 << 27;
+  constexpr static uint32_t kNumKVPairs = 1 << 20;
 
   // Array.
   constexpr static uint32_t kNumArrayEntries = 2 << 20; // 2 M entries.
@@ -64,10 +64,11 @@ private:
   constexpr static uint32_t kLog10NumKeysPerRequest =
       helpers::static_log(10, kNumKeysPerRequest);
   constexpr static uint32_t kReqLen = kKeyLen - kLog10NumKeysPerRequest;
-  constexpr static uint32_t kReqSeqLen = (10*1024*1024);// TODO 1. kNumReqs;
+  constexpr static uint32_t kReqSeqLen = kNumReqs;//(10*1024*1024);// TODO 1. kNumReqs;
+  constexpr static uint32_t kReqSeqLenArr = (1 << 22);// TODO 1. kNumReqs;
 
   // Output.
-  constexpr static uint32_t kPrintPerIters = 8192;
+  constexpr static uint32_t kPrintPerIters = 1024;
   constexpr static uint32_t kMaxPrintIntervalUs = 1000 * 1000; // 1 second(s).
   constexpr static uint32_t kPrintTimes = 100;
 
@@ -97,12 +98,13 @@ private:
   std::unique_ptr<std::mt19937> generators[helpers::kNumCPUs];
   alignas(helpers::kHugepageSize) Req all_gen_reqs[kNumReqs];
   uint32_t all_zipf_req_indices[helpers::kNumCPUs][kReqSeqLen];
-  uint32_t arr_zipf_req_indices[helpers::kNumCPUs][kReqSeqLen];
+  uint32_t arr_zipf_req_indices[helpers::kNumCPUs][kReqSeqLenArr];
 
   Cnt req_cnts[kNumMutatorThreads];
   Cnt local_array_miss_cnts[kNumMutatorThreads];
   Cnt local_hashtable_miss_cnts[kNumMutatorThreads];
   Cnt per_core_req_idx[helpers::kNumCPUs];
+  Cnt per_core_req_idx_arr[helpers::kNumCPUs];
 
   std::atomic_flag flag;
   uint64_t print_times = 0;
@@ -121,6 +123,7 @@ private:
   std::unique_ptr<CryptoPP::CBC_Mode_ExternalCipher::Encryption> cbcEncryption;
   std::unique_ptr<CryptoPP::AES::Encryption> aesEncryption;
 
+    alignas(64) bool stop = false;
 
   inline void append_uint32_to_char_array(uint32_t n, uint32_t suffix_len,
                                           char *array) {
@@ -202,19 +205,24 @@ private:
     }
     preempt_disable();
     zipf_table_distribution<> zipf(kNumReqs, kZipfParamS);
-      zipf_table_distribution<> zipf2(kNumArrayEntries, kZipfParamS); // TODO 2. zipf array
+      zipf_table_distribution<> zipf2(1 << 22, kZipfParamS); // TODO 2. zipf array
       auto &generator = generators[get_core_num()];
     constexpr uint32_t kPerCoreWinInterval = kReqSeqLen / helpers::kNumCPUs;
     for (uint32_t i = 0; i < kReqSeqLen; i++) {
       auto rand_idx = zipf(*generator);
-        auto rand_idx2 = zipf2(*generator);
       for (uint32_t j = 0; j < helpers::kNumCPUs; j++) {
         all_zipf_req_indices[j][(i + (j * kPerCoreWinInterval)) % kReqSeqLen] =
             rand_idx;
-          arr_zipf_req_indices[j][(i + (j * kPerCoreWinInterval)) % kReqSeqLen] =
-                  rand_idx2;
       }
     }
+      constexpr uint32_t kPerCoreWinIntervalArr = kReqSeqLenArr / helpers::kNumCPUs;
+      for (uint32_t i = 0; i < kReqSeqLenArr; i++) {
+          auto rand_idx2 = zipf2(*generator);
+          for (uint32_t j = 0; j < helpers::kNumCPUs; j++) {
+              arr_zipf_req_indices[j][(i + (j * kPerCoreWinIntervalArr)) % kReqSeqLenArr] =
+                      rand_idx2;
+          }
+      }
     preempt_enable();
   }
 
@@ -238,7 +246,7 @@ private:
     ACCESS_ONCE(compressed_len);
   }
 
-  void print_perf() {
+  void print_perf(bool warmup = false) {
     if (!flag.test_and_set()) {
       preempt_disable();
       auto us = microtime();
@@ -269,41 +277,65 @@ private:
         us = microtime();
         running_us += (us - prev_us);
         if (print_times++ >= kPrintTimes) {
-          constexpr double kRatioChosenRecords = 0.1;
-          uint32_t num_chosen_records =
-              mops_records.size() * kRatioChosenRecords;
-          mops_records.erase(mops_records.begin(),
-                             mops_records.end() - num_chosen_records);
-          hashtable_miss_rate_records.erase(hashtable_miss_rate_records.begin(),
-                                            hashtable_miss_rate_records.end() -
-                                                num_chosen_records);
-          array_miss_rate_records.erase(array_miss_rate_records.begin(),
-                                        array_miss_rate_records.end() -
-                                            num_chosen_records);
-            net_reads_records.erase(net_reads_records.begin(),
-                                            net_reads_records.end() - num_chosen_records);
-
-                                    std::cout << "mops = "
-                    << accumulate(mops_records.begin(), mops_records.end(),
-                                  0.0) /
-                           mops_records.size()
-                    << std::endl;
-          std::cout << "hashtable miss rate = "
-                    << accumulate(hashtable_miss_rate_records.begin(),
-                                  hashtable_miss_rate_records.end(), 0.0) /
-                           hashtable_miss_rate_records.size()
-                    << std::endl;
-          std::cout << "array miss rate = "
-                    << accumulate(array_miss_rate_records.begin(),
-                                  array_miss_rate_records.end(), 0.0) /
-                           array_miss_rate_records.size()
-                    << std::endl;
+//          constexpr double kRatioChosenRecords = 0.1;
+//          uint32_t num_chosen_records =
+//              mops_records.size() * kRatioChosenRecords;
+//          mops_records.erase(mops_records.begin(),
+//                             mops_records.end() - num_chosen_records);
+//          hashtable_miss_rate_records.erase(hashtable_miss_rate_records.begin(),
+//                                            hashtable_miss_rate_records.end() -
+//                                                num_chosen_records);
+//          array_miss_rate_records.erase(array_miss_rate_records.begin(),
+//                                        array_miss_rate_records.end() -
+//                                            num_chosen_records);
+//            net_reads_records.erase(net_reads_records.begin(),
+//                                            net_reads_records.end() - num_chosen_records);
+        if (!warmup) {
+            std::cout << "mops = "
+//                      << accumulate(mops_records.begin(), mops_records.end(),
+//                                    0.0) /
+//                         mops_records.size()
+                        << mops
+                      << std::endl;
+            std::cout << "hashtable miss rate = "
+                      << accumulate(hashtable_miss_rate_records.begin(),
+                                    hashtable_miss_rate_records.end(), 0.0) /
+                         hashtable_miss_rate_records.size()
+                      << std::endl;
+            std::cout << "array miss rate = "
+                      << accumulate(array_miss_rate_records.begin(),
+                                    array_miss_rate_records.end(), 0.0) /
+                         array_miss_rate_records.size()
+                      << std::endl;
             std::cout << "net read rate = "
-                       << accumulate(net_reads_records.begin(),
-                                     net_reads_records.end(), 0.0) /
-                              net_reads_records.size()
-                       << std::endl;
-          exit(0);
+                      << accumulate(net_reads_records.begin(),
+                                    net_reads_records.end(), 0.0) /
+                         net_reads_records.size()
+                      << std::endl;
+            exit(0);
+        } else {
+            std::cout << "mops : "
+//                      << accumulate(mops_records.begin(), mops_records.end(),
+//                                    0.0) /
+//                         mops_records.size()
+                    << mops
+                      << std::endl;
+            std::cout << "hashtable miss rate : "
+                      << accumulate(hashtable_miss_rate_records.begin(),
+                                    hashtable_miss_rate_records.end(), 0.0) /
+                         hashtable_miss_rate_records.size()
+                      << std::endl;
+            std::cout << "array miss rate : "
+                      << accumulate(array_miss_rate_records.begin(),
+                                    array_miss_rate_records.end(), 0.0) /
+                         array_miss_rate_records.size()
+                      << std::endl;
+            std::cout << "net read rate : "
+                      << accumulate(net_reads_records.begin(),
+                                    net_reads_records.end(), 0.0) /
+                         net_reads_records.size()
+                      << std::endl;
+        }
         }
         prev_us = us;
         prev_sum_reqs = sum_reqs;
@@ -315,29 +347,39 @@ private:
     }
   }
 
-  void bench(GenericConcurrentHopscotch *hopscotch, AppArray *array) {
+  void bench(GenericConcurrentHopscotch *hopscotch, AppArray *array, uint64_t time_secs, bool warmup = false) {
     std::vector<rt::Thread> threads;
     prev_us = microtime();
+      ACCESS_ONCE(stop) = false;
     for (uint32_t tid = 0; tid < kNumMutatorThreads; tid++) {
       threads.emplace_back(rt::Thread([&, tid]() {
         uint32_t cnt = 0;
-        while (1) {
+        while (!ACCESS_ONCE(stop)) { // TODO 4. while 1 + stop
           if (unlikely(cnt++ % kPrintPerIters == 0)) {
-            preempt_disable();
-            print_perf();
-            preempt_enable();
+//            preempt_disable();
+//            print_perf();
+//            preempt_enable();
+              if (microtime() - prev_us > time_secs * 1000000) {
+                  ACCESS_ONCE(stop) = true;
+                  return;
+              }
           }
           preempt_disable();
           auto core_num = get_core_num();
           auto req_idx =
               all_zipf_req_indices[core_num][per_core_req_idx[core_num].c];
             auto array_index =
-                    arr_zipf_req_indices[core_num][per_core_req_idx[core_num].c];
+                    arr_zipf_req_indices[core_num][per_core_req_idx_arr[core_num].c];
         if (unlikely(++per_core_req_idx[core_num].c == kReqSeqLen)) {
-//            per_core_req_idx[core_num].c = 0;
-            std::cout << "ERROR! core " << core_num << " out of requests!" << std::endl;
-            BUG();
+            per_core_req_idx[core_num].c = 0;
+//            std::cout << "ERROR! core " << core_num << " out of requests!" << std::endl;
+//            BUG();
           }
+            if (unlikely(++per_core_req_idx_arr[core_num].c == kReqSeqLenArr)) {
+                per_core_req_idx_arr[core_num].c = 0;
+//            std::cout << "ERROR! core " << core_num << " out of requests!" << std::endl;
+//            BUG();
+            }
           preempt_enable();
 
           auto &req = all_gen_reqs[req_idx];
@@ -379,6 +421,8 @@ private:
     for (auto &thread : threads) {
       thread.Join();
     }
+      print_times = 200;  /* just some big value */
+      print_perf(warmup);
   }
 
 public:
@@ -393,8 +437,10 @@ public:
         manager->allocate_array_heap<ArrayEntry, kNumArrayEntries>());
     array_ptr->disable_prefetch();
     prepare(array_ptr.get());
+      std::cout << "Warmup..." << std::endl;
+      bench(hopscotch.get(), array_ptr.get(), 120, true);
     std::cout << "Bench..." << std::endl;
-    bench(hopscotch.get(), array_ptr.get());
+    bench(hopscotch.get(), array_ptr.get(), 30);
   }
 
   void run(netaddr raddr) {
